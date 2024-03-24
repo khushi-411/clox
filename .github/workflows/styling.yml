@@ -1,0 +1,28 @@
+name: Styling
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Check code style
+        run: |
+          set -e
+          find . \( -name "*.cpp" -o -name "*.h" \) -print | xargs clang-format --style=file --verbose
+          git diff --exit-code || (echo "Code style issues found. Please run clang-format on your code" && false)

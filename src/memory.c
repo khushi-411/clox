@@ -11,7 +11,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 
   void* result = realloc(pointer, newSize);
   if (result == NULL) {
-    std::exit(1);
+    exit(1);
   }
   return result;
 }

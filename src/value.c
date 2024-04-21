@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <iostream>
 
 #include "memory.h"
 #include "value.h"
@@ -32,5 +31,5 @@ void freeValueArray(ValueArray* array) {
 
 
 void printValue(Value value) {
-  std::cout << value;
+  printf("%f", value);
 }

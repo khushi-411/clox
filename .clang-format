@@ -1,4 +1,5 @@
 # Copied from: https://github.com/pytorch/pytorch/blob/main/.clang-format 
+# clang-format -style=file -i **/*.c **/*.h
 
 ---
 AccessModifierOffset: -1

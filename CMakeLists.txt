@@ -14,7 +14,9 @@ list(APPEND CLOXCPP_SRCS
     ${CLOXCPP_SRCS_DIR}/compiler.c
     ${CLOXCPP_SRCS_DIR}/debug.c
     ${CLOXCPP_SRCS_DIR}/memory.c
+    ${CLOXCPP_SRCS_DIR}/object.c
     ${CLOXCPP_SRCS_DIR}/scanner.c
+    ${CLOXCPP_SRCS_DIR}/table.c
     ${CLOXCPP_SRCS_DIR}/value.c
     ${CLOXCPP_SRCS_DIR}/vm.c
 )

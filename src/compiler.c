@@ -270,7 +270,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
 
   if (type != TYPE_SCRIPT) {
     current->function->name =
-        copyString(parse.previous.start, parser.previous.length);
+        copyString(parser.previous.start, parser.previous.length);
   }
 
   Local* local = &current->locals[current->localCount++];
@@ -372,7 +372,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
   }
 
   if (upvalueCount == UINT8_COUNT) {
-    error("Too many closure varaibles in function.");
+    error("Too many closure variables in function.");
     return 0;
   }
 
@@ -387,7 +387,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
     return -1;
   }
 
-  int local = resolveUpvalue(compiler->enclosing, name);
+  int local = resolveLocal(compiler->enclosing, name);
   if (local != -1) {
     compiler->enclosing->locals[local].isCaptured = true;
     return addUpvalue(compiler, (uint8_t)local, true);
@@ -404,7 +404,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 
 static void addLocal(Token name) {
   if (current->localCount == UINT8_COUNT) {
-    error("Too many local variables in functions.");
+    error("Too many local variables in function.");
     return;
   }
 
@@ -486,7 +486,7 @@ static uint8_t argumentList() {
 }
 
 
-static void add_(bool canAssign) {
+static void and_(bool canAssign) {
   int endJump = emitJump(OP_JUMP_IF_FALSE);
 
   emitByte(OP_POP);
@@ -621,15 +621,15 @@ static void namedVariable(Token name, bool canAssign) {
     setOp = OP_SET_UPVALUE;
   } else {
     arg = identifierConstant(&name);
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    getOp = OP_GET_GLOBAL;
+    setOp = OP_SET_GLOBAL;
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
-    emitBytes(OP_SET_GLOBAL, (uint8_t)arg);
+    emitBytes(setOp, (uint8_t)arg);
   } else {
-    emitBytes(OP_GET_GLOBAL, (uint8_t)arg);
+    emitBytes(getOp, (uint8_t)arg);
   }
 }
 
@@ -639,7 +639,7 @@ static void variable(bool canAssign) {
 }
 
 
-static void syntheticToken(const char* text) {
+static Token syntheticToken(const char* text) {
   Token token;
   token.start = text;
   token.length = (int)strlen(text);
@@ -685,7 +685,7 @@ static void this_(bool canAssign) {
 static void unary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
 
-  expression();
+  // expression();
 
   parsePrecedence(PREC_UNARY);
 
@@ -725,7 +725,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_STRING] = {string, NULL, PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-    [TOKEN_AND] = {NULL, add_, PREC_AND},
+    [TOKEN_AND] = {NULL, and_, PREC_AND},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -750,7 +750,7 @@ static void parsePrecedence(Precedence precedence) {
   advance();
   ParseFn prefixRule = getRule(parser.previous.type)->prefix;
   if (prefixRule == NULL) {
-    error("Expect expression.");
+    error("Expected expression.");
     return;
   }
 
@@ -784,7 +784,7 @@ static void block() {
     declaration();
   }
 
-  consume(TOKEN_RIGHT_BRACE, "Expect '}' after blocl.");
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
 

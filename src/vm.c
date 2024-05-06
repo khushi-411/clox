@@ -137,7 +137,7 @@ static bool call(ObjClosure* closure, int argCount) {
   }
 
   if (vm.frameCount == FRAMES_MAX) {
-    runtimeError("Stack Overflow.");
+    runtimeError("Stack overflow.");
     return false;
   }
 
@@ -171,8 +171,8 @@ static bool callValue(Value callee, int argCount) {
       }
       case OBJ_CLOSURE:
         return call(AS_CLOSURE(callee), argCount);
-      case OBJ_FUNCTION:
-        return call(AS_FUNCTION(callee), argCount);
+      // case OBJ_FUNCTION:
+      //   return call(AS_FUNCTION(callee), argCount);
       case OBJ_NATIVE:
         NativeFn native = AS_NATIVE(callee);
         Value result = native(argCount, vm.stackTop - argCount);
@@ -250,7 +250,7 @@ static ObjUpvalue* captureUpvalue(Value* local) {
   createdUpvalue->next = upvalue;
 
   if (prevUpvalue == NULL) {
-    vm.openUpvalues == createdUpvalue;
+    vm.openUpvalues = createdUpvalue;
   } else {
     prevUpvalue->next = createdUpvalue;
   }
@@ -344,7 +344,7 @@ static InterpretResult run() {
       case OP_GET_LOCAL: {
         uint8_t slot = READ_BYTE();
         // push(vm.stack[slot]);
-        push(frame->slots[slot];
+        push(frame->slots[slot]);
         break;
       }
       case OP_SET_LOCAL: {
@@ -411,8 +411,8 @@ static InterpretResult run() {
         break;
       }
       case OP_SET_PROPERTY: {
-        if (!IS_INSTANCE(peek(0))) {
-          runtimeError("Only instances have properties.");
+        if (!IS_INSTANCE(peek(1))) {
+          runtimeError("Only instances have fields.");
           return INTERPRET_RUNTIME_ERROR;
         }
 

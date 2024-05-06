@@ -19,7 +19,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 
   if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
-    collectGabage();
+    collectGarbage();
 #endif
 
     if (vm.bytesAllocated > vm.nextGC) {
@@ -118,7 +118,7 @@ static void blackenObject(Obj* object) {
       break;
     }
     case OBJ_UPVALUE:
-      markValue((ObjUpvalue*)object)->closed;
+      markValue(((ObjUpvalue*)object)->closed);
       break;
     case OBJ_NATIVE:
     case OBJ_STRING:

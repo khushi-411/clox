@@ -31,7 +31,7 @@ static Obj* allocateObject(size_t size, ObjType type) {
 
 ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method) {
   ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod, OBJ_BOUND_METHOD);
-  bound->receiver = recevier;
+  bound->receiver = receiver;
   bound->method = method;
   return bound;
 }
@@ -48,7 +48,7 @@ ObjClass* newClass(ObjString* name) {
 ObjClosure* newClosure(ObjFunction* function) {
   ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
 
-  for (int i = 0; i < function->upvalueCount++; i++) {
+  for (int i = 0; i < function->upvalueCount; i++) {
     upvalues[i] = NULL;
   }
 
@@ -104,19 +104,6 @@ static uint32_t hashString(const char* key, int length) {
     hash *= 16777619;
   }
   return hash;
-}
-
-
-ObjString* takeString(char* chars, int length) {
-  uint32_t hash = hashString(chars, length);
-  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
-
-  if (interned != NULL) {
-    FREE_ARRAY(char, chars, length + 1);
-    return interned;
-  }
-
-  return allocateString(chars, length, hash);
 }
 
 
@@ -181,4 +168,17 @@ void printObject(Value value) {
       printf("upvalue");
       break;
   }
+}
+
+
+ObjString* takeString(char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+
+  if (interned != NULL) {
+    FREE_ARRAY(char, chars, length + 1);
+    return interned;
+  }
+
+  return allocateString(chars, length, hash);
 }

@@ -72,7 +72,7 @@ static void adjustCapacity(Table* table, int capacity) {
     entries[i].value = NIL_VAL;
   }
 
-  table->capacity = 0;
+  table->count = 0;
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
     if (entry->key == NULL) {
@@ -104,9 +104,9 @@ bool tableSet(Table* table, ObjString* key, Value value) {
     table->count++;
   }
 
-  if (isNewKey) {
-    table->count++;
-  }
+  // if (isNewKey) {
+  //   table->count++;
+  // }
 
   entry->key = key;
   entry->value = value;

@@ -5,6 +5,7 @@
 #include "object.h"
 #include "value.h"
 
+
 void initValueArray(ValueArray* array) {
   array->values = NULL;
   array->capacity = 0;

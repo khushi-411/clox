@@ -72,6 +72,9 @@ void initVM() {
   initTable(&vm.globals);
   initTable(&vm.strings);
 
+  vm.initString = NULL;
+  vm.initString = copyString("init", 4);
+
   defineNative("clock", clockNative);
 }
 
@@ -79,29 +82,13 @@ void initVM() {
 void freeVM() {
   freeTable(&vm.globals);
   freeTable(&vm.strings);
+  vm.initString = NULL;
   freeObjects();
 }
 
 
 static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
-}
-
-
-static void concatenate() {
-  ObjString* b = AS_STRING(peek(0));
-  ObjString* a = AS_STRING(peek(1));
-
-  int length = a->length + b->length;
-  char* chars = ALLOCATE(char, length + 1);
-  memcpy(chars, a->chars, a->length);
-  memcpy(chars + a->length, b->chars, b->length);
-  chars[length] = '\0';
-
-  ObjString* result = takeString(chars, length);
-  pop();
-  pop();
-  push(OBJ_VAL(result));
 }
 
 
@@ -122,6 +109,23 @@ static Value peek(int distance) {
 }
 
 
+static void concatenate() {
+  ObjString* b = AS_STRING(peek(0));
+  ObjString* a = AS_STRING(peek(1));
+
+  int length = a->length + b->length;
+  char* chars = ALLOCATE(char, length + 1);
+  memcpy(chars, a->chars, a->length);
+  memcpy(chars + a->length, b->chars, b->length);
+  chars[length] = '\0';
+
+  ObjString* result = takeString(chars, length);
+  pop();
+  pop();
+  push(OBJ_VAL(result));
+}
+
+
 static bool call(ObjClosure* closure, int argCount) {
   // static bool call(ObjFunction* function, int argCount) {
   if (argCount != closure->function->arity) {
@@ -133,7 +137,7 @@ static bool call(ObjClosure* closure, int argCount) {
   }
 
   if (vm.frameCount == FRAMES_MAX) {
-    runtimeError("Stack Overflow.");
+    runtimeError("Stack overflow.");
     return false;
   }
 
@@ -156,12 +160,19 @@ static bool callValue(Value callee, int argCount) {
       case OBJ_CLASS: {
         ObjClass* klass = AS_CLASS(callee);
         vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+        Value initializer;
+        if (tableGet(&klass->methods, vm.initString, &initializer)) {
+          return call(AS_CLOSURE(initializer), argCount);
+        } else if (argCount != 0) {
+          runtimeError("Expected 0 arguments but got %d.", argCount);
+          return false;
+        }
         return true;
       }
       case OBJ_CLOSURE:
         return call(AS_CLOSURE(callee), argCount);
-      case OBJ_FUNCTION:
-        return call(AS_FUNCTION(callee), argCount);
+      // case OBJ_FUNCTION:
+      //   return call(AS_FUNCTION(callee), argCount);
       case OBJ_NATIVE:
         NativeFn native = AS_NATIVE(callee);
         Value result = native(argCount, vm.stackTop - argCount);
@@ -174,6 +185,36 @@ static bool callValue(Value callee, int argCount) {
   }
   runtimeError("Can only call functions and classes.");
   return false;
+}
+
+
+static bool invokeFromClass(ObjClass* klass, ObjString* name, int argCount) {
+  Value method;
+  if (!tableGet(&klass->methods, name, &method)) {
+    runtimeError("Undefined property '%s'.", name->chars);
+    return false;
+  }
+  return call(AS_CLOSURE(method), argCount);
+}
+
+
+static bool invoke(ObjString* name, int argCount) {
+  Value receiver = peek(argCount);
+
+  if (!IS_INSTANCE(receiver)) {
+    runtimeError("Only instances have methods.");
+    return false;
+  }
+
+  ObjInstance* instance = AS_INSTANCE(receiver);
+
+  Value value;
+  if (tableGet(&instance->fields, name, &value)) {
+    vm.stackTop[-argCount - 1] = value;
+    return callValue(value, argCount);
+  }
+
+  return invokeFromClass(instance->klass, name, argCount);
 }
 
 
@@ -209,7 +250,7 @@ static ObjUpvalue* captureUpvalue(Value* local) {
   createdUpvalue->next = upvalue;
 
   if (prevUpvalue == NULL) {
-    vm.openUpvalues == createdUpvalue;
+    vm.openUpvalues = createdUpvalue;
   } else {
     prevUpvalue->next = createdUpvalue;
   }
@@ -303,7 +344,7 @@ static InterpretResult run() {
       case OP_GET_LOCAL: {
         uint8_t slot = READ_BYTE();
         // push(vm.stack[slot]);
-        push(frame->slots[slot];
+        push(frame->slots[slot]);
         break;
       }
       case OP_SET_LOCAL: {
@@ -370,8 +411,8 @@ static InterpretResult run() {
         break;
       }
       case OP_SET_PROPERTY: {
-        if (!IS_INSTANCE(peek(0))) {
-          runtimeError("Only instances have properties.");
+        if (!IS_INSTANCE(peek(1))) {
+          runtimeError("Only instances have fields.");
           return INTERPRET_RUNTIME_ERROR;
         }
 
@@ -380,6 +421,15 @@ static InterpretResult run() {
         Value value = pop();
         pop();
         push(value);
+        break;
+      }
+      case OP_GET_SUPER: {
+        ObjString* name = READ_STRING();
+        ObjClass* superclass = AS_CLASS(pop());
+
+        if (!bindMethod(superclass, name)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
         break;
       }
       case OP_EQUAL: {
@@ -464,6 +514,25 @@ static InterpretResult run() {
         frame = &vm.frames[vm.frameCount - 1];
         break;
       }
+      case OP_INVOKE: {
+        ObjString* method = READ_STRING();
+        int argCount = READ_BYTE();
+        if (!invoke(method, argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
+      case OP_SUPER_INVOKE: {
+        ObjString* method = READ_STRING();
+        int argCount = READ_BYTE();
+        ObjClass* superclass = AS_CLASS(pop());
+        if (!invokeFromClass(superclass, method, argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
       case OP_CLOSURE: {
         ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
         ObjClosure* closure = newClosure(function);
@@ -501,6 +570,18 @@ static InterpretResult run() {
       }
       case OP_CLASS: {
         push(OBJ_VAL(newClass(READ_STRING())));
+        break;
+      }
+      case OP_INHERIT: {
+        Value superclass = peek(1);
+        if (!IS_CLASS(superclass)) {
+          runtimeError("Superclass must be a class.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+
+        ObjClass* subclass = AS_CLASS(peek(0));
+        tableAddAll(&AS_CLASS(superclass)->methods, &subclass->methods);
+        pop();
         break;
       }
       case OP_METHOD: {
